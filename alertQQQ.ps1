@@ -13,38 +13,55 @@ $stopPerc = -1
 $maxDays = 10
 
 # =========================
-# DOWNLOAD DATI
+# PREZZO ATTUALE INTRADAY
 # =========================
 
-$url = "https://www.alphavantage.co/query?function=TIME_SERIES_DAILY&symbol=$symbol&outputsize=full&apikey=$APIKEY"
-$url = "https://www.alphavantage.co/query?function=TIME_SERIES_DAILY&symbol=$symbol&apikey=$APIKEY"
+$intradayUrl = "https://www.alphavantage.co/query?function=TIME_SERIES_INTRADAY&symbol=$symbol&interval=5min&apikey=$APIKEY"
 
-$data = Invoke-RestMethod -Uri $url
+$intradayData = Invoke-RestMethod -Uri $intradayUrl
 
-$series = $data.'Time Series (Daily)'
+$intradaySeries = $intradayData.'Time Series (5min)'
 
-
-if (-not $series)
+if (-not $intradaySeries)
 {
-    Write-Host "Errore download dati."
+    Write-Host "Errore dati intraday."
     exit
 }
 
-# Date ordinate dalla più recente
-$dates = $series.PSObject.Properties.Name | Sort-Object -Descending
+$intradayDates = $intradaySeries.PSObject.Properties.Name | Sort-Object -Descending
+
+$latestBar = $intradayDates[0]
+
+$oggi = [double]$intradaySeries.$latestBar.'4. close'
 
 # =========================
-# PREZZI
+# DATI DAILY
 # =========================
 
-$oggiDate = $dates[0]
-$ieriDate = $dates[1]
+$dailyUrl = "https://www.alphavantage.co/query?function=TIME_SERIES_DAILY&symbol=$symbol&outputsize=full&apikey=$APIKEY"
 
-$oggi = [double]$series.$oggiDate.'4. close'
-$ieri = [double]$series.$ieriDate.'4. close'
+$dailyData = Invoke-RestMethod -Uri $dailyUrl
+
+$dailySeries = $dailyData.'Time Series (Daily)'
+
+if (-not $dailySeries)
+{
+    Write-Host "Errore dati daily."
+    exit
+}
+
+$dailyDates = $dailySeries.PSObject.Properties.Name | Sort-Object -Descending
 
 # =========================
-# VARIAZIONE GIORNALIERA
+# CHIUSURA IERI
+# =========================
+
+$ieriDate = $dailyDates[1]
+
+$ieri = [double]$dailySeries.$ieriDate.'4. close'
+
+# =========================
+# VARIAZIONE %
 # =========================
 
 $variazione = (($oggi - $ieri) / $ieri) * 100
@@ -57,8 +74,10 @@ $closeList = @()
 
 for ($i = 0; $i -lt 200; $i++)
 {
-    $d = $dates[$i]
-    $close = [double]$series.$d.'4. close'
+    $d = $dailyDates[$i]
+
+    $close = [double]$dailySeries.$d.'4. close'
+
     $closeList += $close
 }
 
@@ -75,6 +94,7 @@ $trendOK = $oggi -gt $ma200
 # =========================
 
 $capitale = 0
+$variazione = 2.8
 
 if ($variazione -le -3.5)
 {
@@ -97,9 +117,9 @@ Write-Host ""
 Write-Host "==============================="
 Write-Host "QQQ STRATEGIA"
 Write-Host "==============================="
-Write-Host "Data: $oggiDate"
-Write-Host "Close oggi: $oggi"
-Write-Host "Close ieri: $ieri"
+Write-Host "Ultima barra intraday: $latestBar"
+Write-Host "Prezzo attuale: $oggi"
+Write-Host "Chiusura ieri ($ieriDate): $ieri"
 Write-Host "Variazione: $([math]::Round($variazione,2))%"
 Write-Host "MA200: $([math]::Round($ma200,2))"
 
@@ -135,16 +155,20 @@ if (($capitale -gt 0) -and $trendOK)
     $msg = @"
 QQQ - SEGNALE ACQUISTO
 
-Data: $oggiDate
+Ora controllo:
+$latestBar
 
-Ribasso giornaliero:
+Ribasso vs chiusura ieri:
 $([math]::Round($variazione,2))%
 
-Prezzo:
+Prezzo attuale:
 $entry
 
 MA200:
 $([math]::Round($ma200,2))
+
+Trend:
+BULLISH
 
 Capitale da investire:
 $capitale €
