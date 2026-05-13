@@ -2,7 +2,7 @@ name: QQQ Alert
 
 on:
   schedule:
-    - cron: '10 20 * * 1-5'
+    - cron: '40 19 * * 1-5'
 
   workflow_dispatch:
 
