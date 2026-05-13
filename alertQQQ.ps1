@@ -19,15 +19,23 @@ $url = "https://stooq.com/q/d/l/?s=$symbol&i=d"
 
 $tempFile = "$env:TEMP\qqq.csv"
 
+$headers = @{
+    "User-Agent" = "Mozilla/5.0"
+}
+
 Invoke-WebRequest `
     -Uri $url `
+    -Headers $headers `
     -OutFile $tempFile
 
 $data = Import-Csv $tempFile
 
+Write-Host "Righe scaricate: $($data.Count)"
+
 if ($data.Count -lt 210)
 {
     Write-Host "Dati insufficienti."
+    Get-Content $tempFile | Select-Object -First 10
     exit
 }
 
