@@ -11,11 +11,13 @@ $targetPerc = 4
 $stopPerc = -1
 $maxDays = 10
 
+$STOOQ_APIKEY = $env:STOOQ_APIKEY
+
 # =========================
 # DOWNLOAD DATI STOOQ
 # =========================
 
-$url = "https://stooq.com/q/d/l/?s=$symbol&i=d"
+$url = "https://stooq.com/q/d/l/?s=$symbol&i=d&apikey=$STOOQ_APIKEY"
 
 $tempFile = "$env:TEMP\qqq.csv"
 
@@ -35,7 +37,6 @@ Write-Host "Righe scaricate: $($data.Count)"
 if ($data.Count -lt 210)
 {
     Write-Host "Dati insufficienti."
-    Get-Content $tempFile | Select-Object -First 10
     exit
 }
 
