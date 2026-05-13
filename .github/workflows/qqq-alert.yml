@@ -17,7 +17,7 @@ jobs:
       - name: Run PowerShell Script
         shell: pwsh
         env:
-          APIKEY: ${{ secrets.APIKEY }}
+          STOOQ_APIKEY: ${{ secrets.STOOQ_APIKEY }}
           TOKEN: ${{ secrets.TOKEN }}
           CHAT_ID: ${{ secrets.CHAT_ID }}
 
