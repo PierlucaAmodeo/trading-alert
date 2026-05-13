@@ -16,15 +16,37 @@ $maxDays = 10
 # PREZZO ATTUALE INTRADAY
 # =========================
 
-$intradayUrl = "https://www.alphavantage.co/query?function=TIME_SERIES_INTRADAY&symbol=$symbol&interval=5min&apikey=$APIKEY"
+$intradayUrl = "https://www.alphavantage.co/query?function=TIME_SERIES_INTRADAY&symbol=$symbol&interval=5min&outputsize=compact&apikey=$APIKEY"
 
 $intradayData = Invoke-RestMethod -Uri $intradayUrl
+
+# DEBUG eventuali errori API
+if ($intradayData.Note)
+{
+    Write-Host "Rate limit AlphaVantage:"
+    Write-Host $intradayData.Note
+    exit
+}
+
+if ($intradayData.Information)
+{
+    Write-Host "Errore API:"
+    Write-Host $intradayData.Information
+    exit
+}
+
+if ($intradayData.'Error Message')
+{
+    Write-Host "Errore simbolo/API:"
+    Write-Host $intradayData.'Error Message'
+    exit
+}
 
 $intradaySeries = $intradayData.'Time Series (5min)'
 
 if (-not $intradaySeries)
 {
-    Write-Host "Errore dati intraday."
+    Write-Host "Dati intraday mancanti."
     exit
 }
 
