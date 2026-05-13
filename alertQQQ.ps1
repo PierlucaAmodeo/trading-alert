@@ -1,8 +1,7 @@
-$APIKEY = $env:APIKEY
 $TOKEN = $env:TOKEN
 $CHAT_ID = $env:CHAT_ID
 
-$symbol = "QQQ"
+$symbol = "qqq.us"
 
 # =========================
 # PARAMETRI STRATEGIA
@@ -13,74 +12,37 @@ $stopPerc = -1
 $maxDays = 10
 
 # =========================
-# PREZZO ATTUALE INTRADAY
+# DOWNLOAD DATI STOOQ
 # =========================
 
-$intradayUrl = "https://www.alphavantage.co/query?function=TIME_SERIES_INTRADAY&symbol=$symbol&interval=5min&outputsize=compact&apikey=$APIKEY"
+$url = "https://stooq.com/q/d/l/?s=$symbol&i=d"
 
-$intradayData = Invoke-RestMethod -Uri $intradayUrl
+$tempFile = "$env:TEMP\qqq.csv"
 
-# DEBUG eventuali errori API
-if ($intradayData.Note)
+Invoke-WebRequest `
+    -Uri $url `
+    -OutFile $tempFile
+
+$data = Import-Csv $tempFile
+
+if ($data.Count -lt 210)
 {
-    Write-Host "Rate limit AlphaVantage:"
-    Write-Host $intradayData.Note
+    Write-Host "Dati insufficienti."
     exit
 }
 
-if ($intradayData.Information)
-{
-    Write-Host "Errore API:"
-    Write-Host $intradayData.Information
-    exit
-}
-
-if ($intradayData.'Error Message')
-{
-    Write-Host "Errore simbolo/API:"
-    Write-Host $intradayData.'Error Message'
-    exit
-}
-
-$intradaySeries = $intradayData.'Time Series (5min)'
-
-if (-not $intradaySeries)
-{
-    Write-Host "Dati intraday mancanti."
-    exit
-}
-
-$intradayDates = $intradaySeries.PSObject.Properties.Name | Sort-Object -Descending
-
-$latestBar = $intradayDates[0]
-
-$oggi = [double]$intradaySeries.$latestBar.'4. close'
-
 # =========================
-# DATI DAILY
+# PREZZI
 # =========================
 
-$dailyUrl = "https://www.alphavantage.co/query?function=TIME_SERIES_DAILY&symbol=$symbol&outputsize=full&apikey=$APIKEY"
+$oggiRow = $data[-1]
+$ieriRow = $data[-2]
 
-$dailyData = Invoke-RestMethod -Uri $dailyUrl
+$oggi = [double]$oggiRow.Close
+$ieri = [double]$ieriRow.Close
 
-$dailySeries = $dailyData.'Time Series (Daily)'
-
-if (-not $dailySeries)
-{
-    Write-Host "Errore dati daily."
-    exit
-}
-
-$dailyDates = $dailySeries.PSObject.Properties.Name | Sort-Object -Descending
-
-# =========================
-# CHIUSURA IERI
-# =========================
-
-$ieriDate = $dailyDates[1]
-
-$ieri = [double]$dailySeries.$ieriDate.'4. close'
+$oggiDate = $oggiRow.Date
+$ieriDate = $ieriRow.Date
 
 # =========================
 # VARIAZIONE %
@@ -89,18 +51,14 @@ $ieri = [double]$dailySeries.$ieriDate.'4. close'
 $variazione = (($oggi - $ieri) / $ieri) * 100
 
 # =========================
-# CALCOLO MA200
+# MA200
 # =========================
 
 $closeList = @()
 
-for ($i = 0; $i -lt 200; $i++)
+for ($i = $data.Count - 200; $i -lt $data.Count; $i++)
 {
-    $d = $dailyDates[$i]
-
-    $close = [double]$dailySeries.$d.'4. close'
-
-    $closeList += $close
+    $closeList += [double]$data[$i].Close
 }
 
 $ma200 = ($closeList | Measure-Object -Average).Average
@@ -116,7 +74,6 @@ $trendOK = $oggi -gt $ma200
 # =========================
 
 $capitale = 0
-$variazione = 2.8
 
 if ($variazione -le -3.5)
 {
@@ -132,32 +89,32 @@ elseif ($variazione -le -1.5)
 }
 
 # =========================
-# OUTPUT DEBUG
+# DEBUG
 # =========================
 
 Write-Host ""
 Write-Host "==============================="
 Write-Host "QQQ STRATEGIA"
 Write-Host "==============================="
-Write-Host "Ultima barra intraday: $latestBar"
-Write-Host "Prezzo attuale: $oggi"
-Write-Host "Chiusura ieri ($ieriDate): $ieri"
+Write-Host "Data oggi: $oggiDate"
+Write-Host "Prezzo oggi: $oggi"
+Write-Host "Prezzo ieri: $ieri"
 Write-Host "Variazione: $([math]::Round($variazione,2))%"
 Write-Host "MA200: $([math]::Round($ma200,2))"
 
 if ($trendOK)
 {
-    Write-Host "Trend: BULLISH (prezzo > MA200)"
+    Write-Host "Trend: BULLISH"
 }
 else
 {
-    Write-Host "Trend: BEARISH (prezzo <= MA200)"
+    Write-Host "Trend: BEARISH"
 }
 
 Write-Host "==============================="
 
 # =========================
-# SEGNALE ACQUISTO
+# SEGNALE
 # =========================
 
 if (($capitale -gt 0) -and $trendOK)
@@ -165,41 +122,38 @@ if (($capitale -gt 0) -and $trendOK)
     $entry = [math]::Round($oggi,2)
 
     $target = [math]::Round(
-        $entry * (1 + ($targetPerc / 100)),
+        $entry * 1.04,
         2
     )
 
     $stop = [math]::Round(
-        $entry * (1 + ($stopPerc / 100)),
+        $entry * 0.99,
         2
     )
 
     $msg = @"
 QQQ - SEGNALE ACQUISTO
 
-Ora controllo:
-$latestBar
+Data:
+$oggiDate
 
-Ribasso vs chiusura ieri:
+Ribasso:
 $([math]::Round($variazione,2))%
 
-Prezzo attuale:
+Prezzo:
 $entry
 
 MA200:
 $([math]::Round($ma200,2))
 
-Trend:
-BULLISH
-
-Capitale da investire:
+Capitale:
 $capitale €
 
 Take Profit:
-$target (+4%)
+$target
 
 Stop Loss:
-$stop (-1%)
+$stop
 
 Durata massima:
 $maxDays giorni
