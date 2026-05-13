@@ -83,7 +83,7 @@ $trendOK = $oggi -gt $ma200
 # =========================
 
 $capitale = 0
-$variazione = 2.8
+$variazione = -2.8
 if ($variazione -le -3.5)
 {
     $capitale = 20000
