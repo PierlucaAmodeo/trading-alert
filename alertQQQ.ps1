@@ -86,15 +86,15 @@ $capitale = 0
 
 if ($variazione -le -3.5)
 {
-    $capitale = 20000
+    $capitale = 2
 }
 elseif ($variazione -le -2.5)
 {
-    $capitale = 15000
+    $capitale = 1.5
 }
 elseif ($variazione -le -1.5)
 {
-    $capitale = 10000
+    $capitale = 1
 }
 
 # =========================
